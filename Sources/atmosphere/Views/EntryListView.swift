@@ -101,8 +101,10 @@ struct EntryListView: View {
         }
         .navigationTitle(journal?.name ?? "Entries")
         .frame(minWidth: 250)
+        .scrollContentBackground(.hidden)
+        .background(Color(nsColor: .controlBackgroundColor))
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItem(placement: .navigation) {
                 if isTrashView {
                     Button(action: { showEmptyTrashConfirmation = true }) {
                         Label("Empty Trash", systemImage: "trash.slash")
@@ -136,9 +138,10 @@ struct EntryListView: View {
                 }
             }
         } message: {
-            Text(isTrashView
-                 ? "This will permanently delete the entry. This action cannot be undone."
-                 : "This entry will be moved to Trash. You can restore it later.")
+            Text(
+                isTrashView
+                    ? "This will permanently delete the entry. This action cannot be undone."
+                    : "This entry will be moved to Trash. You can restore it later.")
         }
         .alert("Empty Trash?", isPresented: $showEmptyTrashConfirmation) {
             Button("Cancel", role: .cancel) {}
@@ -147,7 +150,9 @@ struct EntryListView: View {
                 selectedEntry = nil
             }
         } message: {
-            Text("This will permanently delete all \(filteredEntries.count) entries in Trash. This action cannot be undone.")
+            Text(
+                "This will permanently delete all \(filteredEntries.count) entries in Trash. This action cannot be undone."
+            )
         }
     }
 

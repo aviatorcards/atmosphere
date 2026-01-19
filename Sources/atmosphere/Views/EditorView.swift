@@ -4,58 +4,134 @@ import SwiftUI
 struct EditorView: View {
     @Binding var entry: JournalEntry?
     @EnvironmentObject var store: JournalStore
-    @State private var renderedHTML: String = ""
+    @Environment(\.colorScheme) var colorScheme
     @State private var editedContent: String = ""
+    @State private var editedTitle: String = ""
+    @State private var selectedRange: NSRange?
     @State private var showDeleteConfirmation = false
+    @State private var isEditing = false
     private let processor = MarkdownProcessor()
 
     var body: some View {
         Group {
             if let currentEntry = entry {
-                HSplitView {
-                    // Editor
-                    VStack {
-                        TextEditor(text: $editedContent)
-                            .font(.system(.body, design: .monospaced))
-                            .padding()
-                            .onChange(of: editedContent) {
-                                updatePreview(content: editedContent)
-                                saveEntry()
-                            }
-                    }
-                    .frame(minWidth: 300)
-
-                    // Preview
-                    VStack(alignment: .leading) {
-                        Text("Preview")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal)
-                            .padding(.top, 8)
-
-                        ScrollView {
-                            Text(renderedHTML)
-                                .padding()
+                #if os(macOS)
+                    VStack(spacing: 0) {
+                        // Explicit Title Field
+                        if isEditing {
+                            TextField("Entry Title", text: $editedTitle)
+                                .font(.system(size: 28, weight: .bold))
+                                .textFieldStyle(.plain)
+                                .padding(.horizontal, 22)  // Match editor inset roughly
+                                .padding(.top, 24)
+                                .padding(.bottom, 8)
+                        } else if let title = currentEntry.title, !title.isEmpty {
+                            Text(title)
+                                .font(.system(size: 28, weight: .bold))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 22)
+                                .padding(.top, 24)
+                                .padding(.bottom, 8)
                                 .textSelection(.enabled)
                         }
+
+                        Divider()
+                            .padding(.horizontal, 22)
+                            .padding(.bottom, 8)
+
+                        RichTextEditor(
+                            text: $editedContent,
+                            selectedRange: $selectedRange,
+                            isEditable: isEditing,
+                            processor: processor
+                        )
+                        .background(
+                            Color(
+                                nsColor: NSColor(name: nil) { appearance in
+                                    if appearance.bestMatch(from: [.aqua, .darkAqua]) == .aqua {
+                                        return NSColor(white: 0.96, alpha: 1.0)
+                                    } else {
+                                        return NSColor(white: 0.12, alpha: 1.0)
+                                    }
+                                })
+                        )
                     }
-                    .frame(minWidth: 300)
-                }
-                .onAppear {
-                    editedContent = currentEntry.content
-                    updatePreview(content: currentEntry.content)
-                }
-                .onChange(of: entry?.id) {
-                    if let currentEntry = entry {
+                    .onChange(of: editedContent) {
+                        saveEntry()
+                    }
+                    .onChange(of: editedTitle) {
+                        saveEntry()
+                    }
+                    .onAppear {
                         editedContent = currentEntry.content
-                        updatePreview(content: currentEntry.content)
+                        editedTitle = currentEntry.title ?? ""
+                        // Auto-edit if new/empty
+                        if currentEntry.content.isEmpty {
+                            isEditing = true
+                        }
                     }
-                }
+                    .onChange(of: entry?.id) {
+                        // Reset state when switching entries
+                        isEditing = false
+
+                        if let currentEntry = entry {
+                            editedContent = currentEntry.content
+                            editedTitle = currentEntry.title ?? ""
+
+                            // Auto-edit if new/empty
+                            if currentEntry.content.isEmpty {
+                                isEditing = true
+                            }
+                        }
+                    }
+                #else
+                    // Fallback for iOS - keep simple TextEditor for now
+                    TextEditor(text: $editedContent)
+                        .font(.system(.body, design: .monospaced))
+                        .padding()
+                        .onChange(of: editedContent) {
+                            saveEntry()
+                        }
+                        .onAppear {
+                            editedContent = currentEntry.content
+                        }
+                        .onChange(of: entry?.id) {
+                            if let currentEntry = entry {
+                                editedContent = currentEntry.content
+                            }
+                        }
+                #endif
             } else {
                 VStack(spacing: 16) {
-                    Image(systemName: "square.and.pencil")
-                        .font(.system(size: 48))
-                        .foregroundStyle(.secondary)
+                    if let url = Bundle.module.url(forResource: "LogoDark", withExtension: "png"),
+                        let nsImage = NSImage(contentsOf: url)
+                    {
+                        let baseImage = Image(nsImage: nsImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 128, height: 128)
+                            .opacity(0.8)
+
+                        // Use the dark logo (white on black) as the source of truth
+                        if colorScheme == .dark {
+                            baseImage.blendMode(.screen)
+                        } else {
+                            // Invert to get black on white, then multiply to drop the white
+                            baseImage
+                                .colorInvert()
+                                .blendMode(.multiply)
+                        }
+                    } else {
+                        // Fallback if logo fails to load
+                        Image(systemName: "cloud.fill")
+                            .font(.system(size: 64))
+                            .foregroundStyle(
+                                .linearGradient(
+                                    colors: [.blue, .cyan], startPoint: .topLeading,
+                                    endPoint: .bottomTrailing)
+                            )
+                            .opacity(0.8)
+                    }
                     Text("No Entry Selected")
                         .font(.title2)
                         .foregroundStyle(.secondary)
@@ -67,6 +143,27 @@ struct EditorView: View {
             .toolbar {
                 if entry != nil {
                     ToolbarItemGroup(placement: .primaryAction) {
+                        // Edit Toggle
+                        Button(action: {
+                            if isEditing {
+                                // Done editing - save is handled by onChange but good to reinforce
+                                saveEntry()
+                                isEditing = false
+                            } else {
+                                isEditing = true
+                            }
+                        }) {
+                            Label(
+                                isEditing ? "Done" : "Edit",
+                                systemImage: isEditing ? "checkmark" : "pencil")
+                        }
+                        .keyboardShortcut(
+                            isEditing ? .return : "e", modifiers: isEditing ? .command : .command
+                        )
+                        .help(isEditing ? "Save and finish editing" : "Edit entry")
+
+                        Spacer()
+
                         Button(action: {}) {
                             Label("Add Photo", systemImage: "photo")
                         }
@@ -85,9 +182,11 @@ struct EditorView: View {
                         Button(action: {}) {
                             Label("Record Audio", systemImage: "waveform")
                         }
-                        .disabled(true) // Will implement in Phase 4
+                        .disabled(true)  // Will implement in Phase 4
 
                         ShareLink(item: entry?.content ?? "")
+
+                        Spacer()
 
                         Button(action: { showDeleteConfirmation = true }) {
                             Label("Delete", systemImage: "trash")
@@ -110,14 +209,10 @@ struct EditorView: View {
         #endif
     }
 
-    private func updatePreview(content: String) {
-        let (_, html) = processor.process(content: content)
-        renderedHTML = html
-    }
-
     private func saveEntry() {
         guard var currentEntry = entry else { return }
         currentEntry.content = editedContent
+        currentEntry.title = editedTitle.isEmpty ? nil : editedTitle
         store.updateEntry(currentEntry)
         // Update binding
         entry = currentEntry

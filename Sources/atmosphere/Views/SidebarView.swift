@@ -70,6 +70,8 @@ struct SidebarView: View {
         }
         .listStyle(.sidebar)
         .frame(minWidth: 200)
+        .scrollContentBackground(.hidden)
+        .background(Color(nsColor: .windowBackgroundColor))
         .sheet(isPresented: $showNewJournalSheet) {
             NewJournalView()
                 .environmentObject(store)
