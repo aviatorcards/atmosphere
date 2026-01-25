@@ -10,7 +10,13 @@ struct EditorView: View {
     @State private var selectedRange: NSRange?
     @State private var showDeleteConfirmation = false
     @State private var isEditing = false
+    @FocusState private var focusedField: FocusedField?
     private let processor = MarkdownProcessor()
+    
+    enum FocusedField {
+        case title
+        case body
+    }
 
     var body: some View {
         Group {
@@ -20,11 +26,16 @@ struct EditorView: View {
                         // Explicit Title Field
                         if isEditing {
                             TextField("Entry Title", text: $editedTitle)
+                                .focused($focusedField, equals: .title)
                                 .font(.system(size: 28, weight: .bold))
                                 .textFieldStyle(.plain)
                                 .padding(.horizontal, 22)  // Match editor inset roughly
                                 .padding(.top, 24)
                                 .padding(.bottom, 8)
+                                .onSubmit {
+                                    // Move to body on Return
+                                    focusedField = .body
+                                }
                         } else if let title = currentEntry.title, !title.isEmpty {
                             Text(title)
                                 .font(.system(size: 28, weight: .bold))
@@ -56,6 +67,14 @@ struct EditorView: View {
                                 })
                         )
                     }
+                    .onChange(of: isEditing) {
+                        if isEditing {
+                            // Default to Title when editing starts
+                            focusedField = .title
+                        } else {
+                            focusedField = nil
+                        }
+                    }
                     .onChange(of: editedContent) {
                         saveEntry()
                     }
@@ -68,11 +87,13 @@ struct EditorView: View {
                         // Auto-edit if new/empty
                         if currentEntry.content.isEmpty {
                             isEditing = true
+                            focusedField = .title
                         }
                     }
                     .onChange(of: entry?.id) {
                         // Reset state when switching entries
                         isEditing = false
+                        focusedField = nil
 
                         if let currentEntry = entry {
                             editedContent = currentEntry.content
@@ -81,6 +102,7 @@ struct EditorView: View {
                             // Auto-edit if new/empty
                             if currentEntry.content.isEmpty {
                                 isEditing = true
+                                focusedField = .title
                             }
                         }
                     }

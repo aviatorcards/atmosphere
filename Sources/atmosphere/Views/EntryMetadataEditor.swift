@@ -78,7 +78,7 @@ struct EntryMetadataEditor: View {
             }
             .formStyle(.grouped)
         }
-        .frame(width: 400, height: 450)
+        .frame(width: 400, height: 550)
         .onAppear {
             title = entry.title ?? ""
             tagsText = entry.tags.joined(separator: ", ")

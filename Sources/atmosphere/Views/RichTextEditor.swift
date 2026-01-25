@@ -49,8 +49,16 @@ import SwiftUI
             textView.isAutomaticDashSubstitutionEnabled = false
             textView.isAutomaticTextReplacementEnabled = false
             textView.textContainerInset = NSSize(width: 20, height: 20)
+            textView.isSelectable = true  // Allow clicking to focus
+            
+            // Fix resizing/clickability: Ensure textView can grow and fills width
+            textView.minSize = NSSize(width: 0.0, height: 0.0)
+            textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+            textView.isVerticallyResizable = true
+            textView.isHorizontallyResizable = false
+            textView.autoresizingMask = [.width]
 
-            // Set initial text and trigger rendering
+            // Set initial text
             textStorage.replaceCharacters(in: NSRange(location: 0, length: 0), with: text)
 
             // Create scroll view
@@ -59,7 +67,7 @@ import SwiftUI
             scrollView.hasVerticalScroller = true
             scrollView.hasHorizontalScroller = false
             scrollView.autohidesScrollers = true
-
+            
             return scrollView
         }
 
@@ -78,7 +86,22 @@ import SwiftUI
             // Update text if it changed externally
             let currentText = textView.string
             if currentText != text {
-                textView.string = text
+                // CRITICAL: Use textStorage.replaceCharacters instead of textView.string
+                // to ensure MarkdownTextStorage backing store stays in sync
+                if let textStorage = textView.textStorage {
+                    let fullRange = NSRange(location: 0, length: textStorage.length)
+                    textStorage.replaceCharacters(in: fullRange, with: text)
+                    
+                    // Force layout invalidation to prevent ghosting
+                    if let layoutManager = textView.layoutManager,
+                       let textContainer = textView.textContainer {
+                        layoutManager.invalidateLayout(forCharacterRange: NSRange(location: 0, length: textStorage.length), actualCharacterRange: nil)
+                        layoutManager.ensureLayout(for: textContainer)
+                    }
+                }
+                
+                // Scroll to top when loading new entry
+                textView.scrollToBeginningOfDocument(nil)
             }
         }
 

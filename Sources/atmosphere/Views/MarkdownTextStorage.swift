@@ -7,9 +7,12 @@ import SwiftMark
 class MarkdownTextStorage: NSTextStorage {
     private var backingStore = NSMutableAttributedString()
     private let processor: MarkdownProcessor
+    private var isHighlighting = false
 
-    // Lazy initialization ensures backingStore is available and prevents initialization loops
-    private lazy var highlighter = RegexHighlighter(textStorage: backingStore)
+    // Lazy initialization ensures self is available
+    // We pass 'self' so that highlighting changes go through our overridden setAttributes
+    // which ensures proper notification bubbling (via edited()).
+    private lazy var highlighter = RegexHighlighter(textStorage: self)
 
     init(processor: MarkdownProcessor) {
         self.processor = processor
@@ -35,6 +38,7 @@ class MarkdownTextStorage: NSTextStorage {
     override func attributes(at location: Int, effectiveRange range: NSRangePointer?)
         -> [NSAttributedString.Key: Any]
     {
+        // Safe to read from backing store directly as it's the source of truth
         backingStore.attributes(at: location, effectiveRange: range)
     }
 
@@ -57,10 +61,18 @@ class MarkdownTextStorage: NSTextStorage {
     // MARK: - Processing
 
     override func processEditing() {
-        // Highlight syntax on the backing store directly without replacing content
-        // This preserves the exact input structure (newlines, spaces).
+        // Prevent infinite recursion since highlighter modifies attributes,
+        // which triggers setAttributes -> edited -> processEditing.
+        if isHighlighting {
+            super.processEditing()
+            return
+        }
+
+        // Highlight when characters change
         if editedMask.contains(.editedCharacters) {
+            isHighlighting = true
             highlighter.highlight()
+            isHighlighting = false
         }
 
         super.processEditing()
