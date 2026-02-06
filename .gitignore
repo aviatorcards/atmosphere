@@ -3,6 +3,7 @@
 .vscode/
 .claude/
 .netrc
+ROADMAP.md
 
 # Swift
 .build/
