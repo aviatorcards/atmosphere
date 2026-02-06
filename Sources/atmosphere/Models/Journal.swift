@@ -7,10 +7,11 @@ struct Journal: Identifiable, Hashable, Codable {
     var colorHex: String?  // Optional custom color
     var isDefault: Bool  // True for built-in journals
     var sortOrder: Int  // For custom ordering
+    var tagFilter: String? = nil  // For tag-based virtual journals
 
     init(
         id: UUID = UUID(), name: String, icon: String, colorHex: String? = nil,
-        isDefault: Bool = false, sortOrder: Int = 0
+        isDefault: Bool = false, sortOrder: Int = 0, tagFilter: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -18,6 +19,7 @@ struct Journal: Identifiable, Hashable, Codable {
         self.colorHex = colorHex
         self.isDefault = isDefault
         self.sortOrder = sortOrder
+        self.tagFilter = tagFilter
     }
 
     // Predefined journal IDs for special collections
@@ -32,7 +34,8 @@ struct Journal: Identifiable, Hashable, Codable {
     static let all = Journal(
         id: allEntriesID, name: "All Entries", icon: "tray.full", isDefault: true, sortOrder: -3)
     static let map = Journal(id: mapID, name: "Places", icon: "map", isDefault: true, sortOrder: -2)
-    static let trash = Journal(id: trashID, name: "Trash", icon: "trash", isDefault: true, sortOrder: -1)
+    static let trash = Journal(
+        id: trashID, name: "Trash", icon: "trash", isDefault: true, sortOrder: -1)
 
     // Factory methods for default journals
     static func createDefaults() -> [Journal] {

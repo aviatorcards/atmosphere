@@ -61,19 +61,12 @@ struct EditJournalView: View {
                         TextField("Journal Name", text: $journalName)
                             .textFieldStyle(.roundedBorder)
                             .focused($isNameFieldFocused)
-                            .disabled(journal.isDefault)
 
-                        if journal.isDefault {
-                            Text("Default journals cannot be renamed")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        } else {
-                            HStack {
-                                if !journalName.isEmpty {
-                                    Text("\(journalName.count)/50")
-                                        .font(.caption)
-                                        .foregroundColor(journalName.count > 50 ? .red : .secondary)
-                                }
+                        HStack {
+                            if !journalName.isEmpty {
+                                Text("\(journalName.count)/50")
+                                    .font(.caption)
+                                    .foregroundColor(journalName.count > 50 ? .red : .secondary)
                             }
                         }
                     }
@@ -142,9 +135,7 @@ struct EditJournalView: View {
         }
         .frame(width: 800, height: 650)
         .onAppear {
-            if !journal.isDefault {
-                isNameFieldFocused = true
-            }
+            isNameFieldFocused = true
         }
         .alert("Invalid Journal", isPresented: $showValidationError) {
             Button("OK", role: .cancel) {}
@@ -156,24 +147,22 @@ struct EditJournalView: View {
     private func saveChanges() {
         let trimmedName = journalName.trimmingCharacters(in: .whitespaces)
 
-        // Validate name (only if not default journal)
-        if !journal.isDefault {
-            guard !trimmedName.isEmpty else {
-                validationMessage = "Journal name cannot be empty"
-                showValidationError = true
-                return
-            }
+        // Validate name for all journals
+        guard !trimmedName.isEmpty else {
+            validationMessage = "Journal name cannot be empty"
+            showValidationError = true
+            return
+        }
 
-            guard trimmedName.count <= 50 else {
-                validationMessage = "Journal name must be 50 characters or less"
-                showValidationError = true
-                return
-            }
+        guard trimmedName.count <= 50 else {
+            validationMessage = "Journal name must be 50 characters or less"
+            showValidationError = true
+            return
         }
 
         // Create updated journal
         var updatedJournal = journal
-        updatedJournal.name = journal.isDefault ? journal.name : trimmedName
+        updatedJournal.name = trimmedName
         updatedJournal.icon = selectedIcon
         updatedJournal.colorHex = selectedColorHex
 
@@ -181,3 +170,4 @@ struct EditJournalView: View {
         dismiss()
     }
 }
+

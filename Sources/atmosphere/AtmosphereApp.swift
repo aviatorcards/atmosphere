@@ -11,6 +11,12 @@ struct AtmosphereApp: App {
             ContentView()
                 .environmentObject(store)
         }
+        #if os(macOS)
+        Settings {
+            SettingsView()
+                .environmentObject(store)
+        }
+        #endif
     }
 }
 

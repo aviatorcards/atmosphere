@@ -5,6 +5,15 @@ struct SidebarView: View {
     @EnvironmentObject var store: JournalStore
     @State private var showNewJournalSheet = false
     @State private var journalToEdit: Journal?
+    @State private var isTagsExpanded = false
+    @State private var tagSearchText = ""
+
+    private var displayedTags: [Journal] {
+        if !tagSearchText.isEmpty {
+            return store.tags.filter { $0.name.localizedCaseInsensitiveContains(tagSearchText) }
+        }
+        return isTagsExpanded ? store.tags : Array(store.tags.prefix(5))
+    }
 
     var body: some View {
         List(selection: $selectedJournal) {
@@ -20,10 +29,16 @@ struct SidebarView: View {
             Section {
                 ForEach(store.journals.sorted(by: { $0.sortOrder < $1.sortOrder })) { journal in
                     NavigationLink(value: journal) {
-                        Label(journal.name, systemImage: journal.icon)
-                            .foregroundColor(
-                                journal.colorHex != nil ? Color(hex: journal.colorHex!) : nil
-                            )
+                        Label {
+                            Text(journal.name)
+                                .foregroundColor(.primary)
+                        } icon: {
+                            Image(systemName: journal.icon)
+                                .foregroundColor(
+                                    journal.colorHex != nil
+                                        ? Color(hex: journal.colorHex!) : .primary
+                                )
+                        }
                     }
                     .contextMenu {
                         Button {
@@ -57,6 +72,38 @@ struct SidebarView: View {
                     .buttonStyle(.plain)
                     .foregroundColor(.secondary)
                     .help("New Journal")
+                }
+            }
+
+            if !store.tags.isEmpty {
+                Section("Tags") {
+                    if isTagsExpanded {
+                        TextField("Filter Tags", text: $tagSearchText)
+                            .textFieldStyle(.plain)
+                            .padding(.vertical, 4)
+                    }
+
+                    ForEach(displayedTags) { tag in
+                        NavigationLink(value: tag) {
+                            Label(tag.name, systemImage: tag.icon)
+                        }
+                    }
+
+                    if store.tags.count > 5 && tagSearchText.isEmpty {
+                        Button {
+                            withAnimation {
+                                if isTagsExpanded { tagSearchText = "" }
+                                isTagsExpanded.toggle()
+                            }
+                        } label: {
+                            Label(
+                                isTagsExpanded ? "Show Less" : "Show More",
+                                systemImage: isTagsExpanded ? "chevron.up" : "chevron.down"
+                            )
+                            .foregroundColor(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
             }
 

@@ -47,7 +47,8 @@ class MarkdownTextStorage: NSTextStorage {
     override func replaceCharacters(in range: NSRange, with str: String) {
         beginEditing()
         backingStore.replaceCharacters(in: range, with: str)
-        edited(.editedCharacters, range: range, changeInLength: str.count - range.length)
+        let changeInLength = str.utf16.count - range.length
+        edited(.editedCharacters, range: range, changeInLength: changeInLength)
         endEditing()
     }
 

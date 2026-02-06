@@ -161,7 +161,7 @@ struct EntryListView: View {
             content: "",
             journalIDs: journal.map { [$0.id] } ?? []
         )
-        store.addEntry(newEntry)
-        selectedEntry = newEntry
+        let addedEntry = store.addEntry(newEntry)
+        selectedEntry = addedEntry
     }
 }
