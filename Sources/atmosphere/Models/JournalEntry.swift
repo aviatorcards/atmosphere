@@ -26,6 +26,8 @@ struct JournalEntry: Identifiable, Hashable, Codable {
     // Soft delete - nil means not deleted
     var deletedAt: Date?
 
+    var frontmatter: [String: CodableValue]?
+
     init(
         id: UUID = UUID(),
         date: Date = Date(),
@@ -40,7 +42,8 @@ struct JournalEntry: Identifiable, Hashable, Codable {
         longitude: Double? = nil,
         isBookmarked: Bool = false,
         journalIDs: [UUID] = [],
-        deletedAt: Date? = nil
+        deletedAt: Date? = nil,
+        frontmatter: [String: CodableValue]? = nil
     ) {
         self.id = id
         self.date = date
@@ -56,6 +59,7 @@ struct JournalEntry: Identifiable, Hashable, Codable {
         self.isBookmarked = isBookmarked
         self.journalIDs = journalIDs
         self.deletedAt = deletedAt
+        self.frontmatter = frontmatter
     }
 
     var isDeleted: Bool {

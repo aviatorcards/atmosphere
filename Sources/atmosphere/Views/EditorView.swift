@@ -17,12 +17,17 @@ struct EditorView: View {
     @State private var isImporterPresented = false
     @State private var editedPhotoPaths: [String] = []
     @State private var editedAudioPaths: [String] = []
+    @State private var editedFrontmatter: [String: CodableValue]? = nil
     @State private var expandedImage: URL? = nil
     @StateObject private var locationManager = LocationManager()
     @StateObject private var audioRecorder = AudioRecorder()
     @FocusState private var focusedField: FocusedField?
     private let processor = MarkdownProcessor()
     
+    @State private var isExporting = false
+    @State private var exportURL: URL? = nil
+    @State private var exportDocument: MarkdownDocument? = nil
+
     private var hasLocation: Bool {
         return entry?.locationName != nil || entry?.coordinate != nil
     }
@@ -273,6 +278,27 @@ struct EditorView: View {
                     .padding(.bottom, 8)
                 }
 
+                if isEditing {
+                    FrontmatterEditorView(frontmatter: $editedFrontmatter)
+                        .padding(.horizontal, 22)
+                        .padding(.bottom, 8)
+                } else if let fm = editedFrontmatter, !fm.isEmpty {
+                    // Show a summary of frontmatter when not editing
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(fm.keys.sorted(), id: \.self) { key in
+                            HStack {
+                                Text(key + ":")
+                                    .fontWeight(.medium)
+                                Text("\(String(describing: fm[key]?.anyValue ?? ""))")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .font(.caption)
+                        }
+                    }
+                    .padding(.horizontal, 22)
+                    .padding(.bottom, 8)
+                }
+
                 Divider()
                     .padding(.horizontal, 22)
                     .padding(.bottom, 8)
@@ -311,6 +337,9 @@ struct EditorView: View {
             .onChange(of: editedTags) {
                 saveEntry()
             }
+            .onChange(of: editedFrontmatter) {
+                saveEntry()
+            }
             .onAppear {
                 loadEntryState(currentEntry)
             }
@@ -336,6 +365,16 @@ struct EditorView: View {
                 }
             } message: {
                 Text("This entry will be moved to Trash. You can restore it later.")
+            }
+            .fileExporter(
+                isPresented: $isExporting,
+                document: exportDocument,
+                contentType: .plainText,
+                defaultFilename: (entry?.displayTitle ?? "Entry") + ".md"
+            ) { result in
+                if case .failure(let error) = result {
+                    print("Export failed: \(error.localizedDescription)")
+                }
             }
         #else
             // Fallback for iOS - keep simple TextEditor for now
@@ -472,6 +511,13 @@ struct EditorView: View {
 
                 ShareLink(item: entry?.content ?? "")
 
+                Button(action: {
+                    prepareExport()
+                }) {
+                    Label("Export as Markdown", systemImage: "square.and.arrow.up")
+                }
+                .help("Export as Markdown file")
+
                 Spacer()
 
                 Button(action: { showDeleteConfirmation = true }) {
@@ -488,6 +534,7 @@ struct EditorView: View {
         editedTags = currentEntry.tags
         editedPhotoPaths = currentEntry.photoPaths
         editedAudioPaths = currentEntry.audioPaths
+        editedFrontmatter = currentEntry.frontmatter
         // Auto-edit if new/empty
         if currentEntry.content.isEmpty {
             isEditing = true
@@ -512,10 +559,45 @@ struct EditorView: View {
         currentEntry.tags = editedTags
         currentEntry.photoPaths = editedPhotoPaths
         currentEntry.audioPaths = editedAudioPaths
+        currentEntry.frontmatter = editedFrontmatter
 
         store.updateEntry(currentEntry)
         // Update binding
         entry = currentEntry
+    }
+
+    private func prepareExport() {
+        guard let currentEntry = entry else { return }
+        
+        // Generate frontmatter-enhanced markdown
+        var fmString = "---\n"
+        var fm: [String: Any] = [:]
+        if let entryFM = currentEntry.frontmatter {
+            for (k, v) in entryFM {
+                fm[k] = v.anyValue
+            }
+        }
+        
+        fm["title"] = currentEntry.title
+        fm["date"] = ISO8601DateFormatter().string(from: currentEntry.date)
+        if !currentEntry.tags.isEmpty {
+            fm["tags"] = currentEntry.tags
+        }
+        
+        for (key, value) in fm.sorted(by: { $0.key < $1.key }) {
+            if let val = value as? String {
+                fmString += "\(key): \"\(val.replacingOccurrences(of: "\"", with: "\\\""))\"\n"
+            } else if let val = value as? [String] {
+                fmString += "\(key): [\(val.map { "\"\($0)\"" }.joined(separator: ", "))]\n"
+            } else {
+                fmString += "\(key): \(value)\n"
+            }
+        }
+        fmString += "---\n\n"
+        
+        let fullContent = fmString + currentEntry.content
+        exportDocument = MarkdownDocument(content: fullContent)
+        isExporting = true
     }
 }
 
@@ -561,6 +643,29 @@ struct SimpleAudioPlayer: View {
                 print("Play error: \(error)")
             }
         }
+    }
+}
+
+struct MarkdownDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.plainText, .text] }
+    var content: String
+
+    init(content: String) {
+        self.content = content
+    }
+
+    init(configuration: ReadConfiguration) throws {
+        guard let data = configuration.file.regularFileContents,
+              let string = String(data: data, encoding: .utf8)
+        else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        content = string
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        let data = content.data(using: .utf8)!
+        return .init(regularFileWithContents: data)
     }
 }
 

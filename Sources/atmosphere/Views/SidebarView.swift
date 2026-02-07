@@ -5,6 +5,8 @@ struct SidebarView: View {
     @EnvironmentObject var store: JournalStore
     @State private var showNewJournalSheet = false
     @State private var journalToEdit: Journal?
+    @State private var journalToDelete: Journal?
+    @State private var showingDeleteConfirmation = false
     @State private var isTagsExpanded = false
     @State private var tagSearchText = ""
 
@@ -47,17 +49,25 @@ struct SidebarView: View {
                             Label("Edit Journal", systemImage: "pencil")
                         }
 
-                        if !journal.isDefault {
+                        if store.journals.count > 1 {
                             Divider()
 
                             Button(role: .destructive) {
-                                store.deleteJournal(journal)
-                                if selectedJournal?.id == journal.id {
-                                    selectedJournal = Journal.all
-                                }
+                                journalToDelete = journal
+                                showingDeleteConfirmation = true
                             } label: {
                                 Label("Delete Journal", systemImage: "trash")
                             }
+                        }
+                    }
+                }
+                .onDelete { indexSet in
+                    let sortedJournals = store.journals.sorted(by: { $0.sortOrder < $1.sortOrder })
+                    for index in indexSet {
+                        let journal = sortedJournals[index]
+                        if store.journals.count > 1 {
+                            journalToDelete = journal
+                            showingDeleteConfirmation = true
                         }
                     }
                 }
@@ -126,6 +136,20 @@ struct SidebarView: View {
         .sheet(item: $journalToEdit) { journal in
             EditJournalView(journal: journal)
                 .environmentObject(store)
+        }
+        .alert("Delete Journal?", isPresented: $showingDeleteConfirmation, presenting: journalToDelete) { journal in
+            Button("Cancel", role: .cancel) {
+                journalToDelete = nil
+            }
+            Button("Delete", role: .destructive) {
+                store.deleteJournal(journal)
+                if selectedJournal?.id == journal.id {
+                    selectedJournal = Journal.all
+                }
+                journalToDelete = nil
+            }
+        } message: { journal in
+            Text("Are you sure you want to delete '\(journal.name)'? All entries in this journal will remain in their other journals, or move to the default journal if this was their only one.")
         }
     }
 }

@@ -293,12 +293,18 @@ class JournalStore: ObservableObject {
     func deleteJournal(_ journal: Journal) {
         journals.removeAll { $0.id == journal.id }
         if preferredDefaultJournalID == journal.id { preferredDefaultJournalID = nil }
-        // Remove journal ID from all entries
+        
+        // Handle entries tied to this journal
         for i in entries.indices {
-            entries[i].journalIDs.removeAll { $0 == journal.id }
-            // If an entry has no journals left, move it to the default journal
-            if entries[i].journalIDs.isEmpty {
-                entries[i].journalIDs = [defaultJournalID]
+            if entries[i].journalIDs.contains(journal.id) {
+                entries[i].journalIDs.removeAll { $0 == journal.id }
+                
+                // If this was the only journal for the entry, move it to trash
+                if entries[i].journalIDs.isEmpty {
+                    entries[i].deletedAt = Date()
+                    // Re-assign to default so it has a home if restored
+                    entries[i].journalIDs = [defaultJournalID]
+                }
             }
         }
         saveJournals()

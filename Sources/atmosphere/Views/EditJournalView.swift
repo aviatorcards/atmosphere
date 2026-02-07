@@ -11,6 +11,7 @@ struct EditJournalView: View {
     @State private var selectedColorHex: String?
     @State private var showValidationError = false
     @State private var validationMessage = ""
+    @State private var showingDeleteConfirmation = false
 
     @FocusState private var isNameFieldFocused: Bool
 
@@ -106,18 +107,17 @@ struct EditJournalView: View {
 
             // Footer buttons
             HStack {
-                if !journal.isDefault {
+                if store.journals.count > 1 {
                     Button(role: .destructive) {
-                        store.deleteJournal(journal)
-                        dismiss()
+                        showingDeleteConfirmation = true
                     } label: {
-                        Image(systemName: "trash")
-                            .font(.system(size: 14))
+                        Label("Delete Journal", systemImage: "trash")
+                            .foregroundColor(.red)
                     }
                     .buttonStyle(.plain)
-                    .foregroundColor(.red)
                     .help("Delete Journal")
                 }
+                
                 Spacer()
 
                 Button("Cancel") {
@@ -141,6 +141,15 @@ struct EditJournalView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(validationMessage)
+        }
+        .alert("Delete Journal?", isPresented: $showingDeleteConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) {
+                store.deleteJournal(journal)
+                dismiss()
+            }
+        } message: {
+            Text("Are you sure you want to delete '\(journal.name)'? All entries in this journal will remain in their other journals, or move to the default journal if this was their only one.")
         }
     }
 

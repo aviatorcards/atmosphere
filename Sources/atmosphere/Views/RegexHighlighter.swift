@@ -30,6 +30,20 @@ class RegexHighlighter {
         textStorage.addAttribute(.font, value: baseFont, range: range)
         textStorage.addAttribute(.foregroundColor, value: NSColor.labelColor, range: range)
 
+        // Frontmatter: --- ... ---
+        highlightRegex(pattern: "(?s)^---\\s*$.*?^---\\s*$", options: [.anchorsMatchLines]) { matchRange in
+            textStorage.addAttribute(.foregroundColor, value: secondaryColor, range: matchRange)
+            // Use a slightly smaller font for frontmatter
+            if let smallerFont = NSFont.systemFont(ofSize: 14) as NSFont? {
+                textStorage.addAttribute(.font, value: smallerFont, range: matchRange)
+            }
+        }
+
+        // Shortcodes: {{< name ... >}}
+        highlightRegex(pattern: "\\{\\{<.*?\\>\\}\\}") { matchRange in
+            textStorage.addAttribute(.foregroundColor, value: NSColor.systemPurple, range: matchRange)
+        }
+
         // Headers: # Header
         highlightRegex(pattern: "^#{1,6}\\s+.*$", options: [.anchorsMatchLines]) { matchRange in
             // Determine level
