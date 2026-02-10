@@ -62,6 +62,23 @@ struct JournalEntry: Identifiable, Hashable, Codable {
         self.frontmatter = frontmatter
     }
 
+    // MARK: - Statistics
+
+    var wordCount: Int {
+        content.split { $0.isWhitespace || $0.isNewline }.count
+    }
+
+    var characterCount: Int {
+        content.count
+    }
+
+    var readTime: TimeInterval {
+        // Average reading speed: 200 words per minute
+        let wordsPerMinute = 200.0
+        let minutes = Double(wordCount) / wordsPerMinute
+        return minutes * 60
+    }
+
     var isDeleted: Bool {
         deletedAt != nil
     }

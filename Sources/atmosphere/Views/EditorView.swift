@@ -19,11 +19,16 @@ struct EditorView: View {
     @State private var editedAudioPaths: [String] = []
     @State private var editedFrontmatter: [String: CodableValue]? = nil
     @State private var expandedImage: URL? = nil
+
+    // Feature Flags
+    @State private var isTypewriterMode = false
+    @State private var showStats = false
+
     @StateObject private var locationManager = LocationManager()
     @StateObject private var audioRecorder = AudioRecorder()
     @FocusState private var focusedField: FocusedField?
     private let processor = MarkdownProcessor()
-    
+
     @State private var isExporting = false
     @State private var exportURL: URL? = nil
     @State private var exportDocument: MarkdownDocument? = nil
@@ -303,10 +308,26 @@ struct EditorView: View {
                     .padding(.horizontal, 22)
                     .padding(.bottom, 8)
 
+                if showStats {
+                    HStack(spacing: 16) {
+                        Label("\(currentEntry.wordCount) words", systemImage: "doc.text")
+                        Label("\(currentEntry.characterCount) chars", systemImage: "textformat")
+                        Label(
+                            "\(String(format: "%.1f", currentEntry.readTime)) min read",
+                            systemImage: "clock")
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 22)
+                    .padding(.bottom, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
+
                 RichTextEditor(
                     text: $editedContent,
                     selectedRange: $selectedRange,
                     isEditable: isEditing,
+                    isTypewriterMode: isTypewriterMode,
                     processor: processor
                 )
                 .background(
@@ -482,8 +503,9 @@ struct EditorView: View {
                 Button(action: {
                     locationManager.requestLocation()
                 }) {
-                    Label(hasLocation ? "Update Location" : "Add Location",
-                          systemImage: hasLocation ? "location.fill" : "location")
+                    Label(
+                        hasLocation ? "Update Location" : "Add Location",
+                        systemImage: hasLocation ? "location.fill" : "location")
                 }
                 .help(hasLocation ? "Update the saved location" : "Attach your current location")
                 .disabled(false)
@@ -509,14 +531,49 @@ struct EditorView: View {
                 }
                 .disabled(false)
 
-                ShareLink(item: entry?.content ?? "")
+                Button(action: {
+                    isTypewriterMode.toggle()
+                }) {
+                    Label(
+                        "Typewriter Mode",
+                        systemImage: isTypewriterMode
+                            ? "arrow.up.and.down.circle.fill" : "arrow.up.and.down.circle")
+                }
+                .help("Toggle Typewriter Mode")
 
                 Button(action: {
-                    prepareExport()
+                    withAnimation {
+                        showStats.toggle()
+                    }
                 }) {
-                    Label("Export as Markdown", systemImage: "square.and.arrow.up")
+                    Label(
+                        "Statistics",
+                        systemImage: showStats ? "info.circle.fill" : "info.circle")
                 }
-                .help("Export as Markdown file")
+                .help("Toggle Statistics")
+
+                ShareLink(item: entry?.content ?? "")
+
+                Menu {
+                    Button(action: {
+                        prepareExport()
+                    }) {
+                        Label("Markdown", systemImage: "doc.text")
+                    }
+                    Button(action: {
+                        exportToHTML()
+                    }) {
+                        Label("HTML", systemImage: "chevron.left.forwardslash.chevron.right")
+                    }
+                    Button(action: {
+                        exportToPDF()
+                    }) {
+                        Label("PDF", systemImage: "doc.text.image")
+                    }
+                } label: {
+                    Label("Export", systemImage: "square.and.arrow.up")
+                }
+                .help("Export Entry")
 
                 Spacer()
 
@@ -568,7 +625,7 @@ struct EditorView: View {
 
     private func prepareExport() {
         guard let currentEntry = entry else { return }
-        
+
         // Generate frontmatter-enhanced markdown
         var fmString = "---\n"
         var fm: [String: Any] = [:]
@@ -577,13 +634,13 @@ struct EditorView: View {
                 fm[k] = v.anyValue
             }
         }
-        
+
         fm["title"] = currentEntry.title
         fm["date"] = ISO8601DateFormatter().string(from: currentEntry.date)
         if !currentEntry.tags.isEmpty {
             fm["tags"] = currentEntry.tags
         }
-        
+
         for (key, value) in fm.sorted(by: { $0.key < $1.key }) {
             if let val = value as? String {
                 fmString += "\(key): \"\(val.replacingOccurrences(of: "\"", with: "\\\""))\"\n"
@@ -594,10 +651,48 @@ struct EditorView: View {
             }
         }
         fmString += "---\n\n"
-        
+
         let fullContent = fmString + currentEntry.content
         exportDocument = MarkdownDocument(content: fullContent)
+        exportDocument = MarkdownDocument(content: fullContent)
         isExporting = true
+    }
+
+    private func exportToHTML() {
+        guard let currentEntry = entry else { return }
+        let html = ExportManager.shared.exportToHTML(entry: currentEntry)
+
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.html]
+        panel.nameFieldStringValue = (currentEntry.displayTitle) + ".html"
+
+        panel.begin { response in
+            if response == .OK, let url = panel.url {
+                try? html.write(to: url, atomically: true, encoding: .utf8)
+            }
+        }
+    }
+
+    private func exportToPDF() {
+        guard let currentEntry = entry else { return }
+        ExportManager.shared.exportToPDF(entry: currentEntry) { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let data):
+                    let panel = NSSavePanel()
+                    panel.allowedContentTypes = [.pdf]
+                    panel.nameFieldStringValue = (currentEntry.displayTitle) + ".pdf"
+
+                    panel.begin { response in
+                        if response == .OK, let url = panel.url {
+                            try? data.write(to: url)
+                        }
+                    }
+                case .failure(let error):
+                    print("PDF Export failed: \(error)")
+                }
+            }
+        }
     }
 }
 
@@ -656,7 +751,7 @@ struct MarkdownDocument: FileDocument {
 
     init(configuration: ReadConfiguration) throws {
         guard let data = configuration.file.regularFileContents,
-              let string = String(data: data, encoding: .utf8)
+            let string = String(data: data, encoding: .utf8)
         else {
             throw CocoaError(.fileReadCorruptFile)
         }
@@ -668,4 +763,3 @@ struct MarkdownDocument: FileDocument {
         return .init(regularFileWithContents: data)
     }
 }
-

@@ -18,6 +18,7 @@ let package = Package(
             dependencies: [
                 .product(name: "SwiftMark", package: "SwiftMark")
             ],
+            exclude: ["Info.plist"],
             resources: [
                 .process("Resources")
             ]

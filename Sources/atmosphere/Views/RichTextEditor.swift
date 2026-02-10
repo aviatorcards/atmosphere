@@ -9,6 +9,7 @@ import SwiftUI
         @Binding var text: String
         @Binding var selectedRange: NSRange?
         var isEditable: Bool  // Control editing state
+        var isTypewriterMode: Bool  // NEW: Typewriter mode toggle
         let processor: MarkdownProcessor
 
         func makeNSView(context: Context) -> NSScrollView {
@@ -50,10 +51,11 @@ import SwiftUI
             textView.isAutomaticTextReplacementEnabled = false
             textView.textContainerInset = NSSize(width: 20, height: 20)
             textView.isSelectable = true  // Allow clicking to focus
-            
+
             // Fix resizing/clickability: Ensure textView can grow and fills width
             textView.minSize = NSSize(width: 0.0, height: 0.0)
-            textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+            textView.maxSize = NSSize(
+                width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
             textView.isVerticallyResizable = true
             textView.isHorizontallyResizable = false
             textView.autoresizingMask = [.width]
@@ -67,7 +69,7 @@ import SwiftUI
             scrollView.hasVerticalScroller = true
             scrollView.hasHorizontalScroller = false
             scrollView.autohidesScrollers = true
-            
+
             return scrollView
         }
 
@@ -91,15 +93,18 @@ import SwiftUI
                 if let textStorage = textView.textStorage {
                     let fullRange = NSRange(location: 0, length: textStorage.length)
                     textStorage.replaceCharacters(in: fullRange, with: text)
-                    
+
                     // Force layout invalidation to prevent ghosting
                     if let layoutManager = textView.layoutManager,
-                       let textContainer = textView.textContainer {
-                        layoutManager.invalidateLayout(forCharacterRange: NSRange(location: 0, length: textStorage.length), actualCharacterRange: nil)
+                        let textContainer = textView.textContainer
+                    {
+                        layoutManager.invalidateLayout(
+                            forCharacterRange: NSRange(location: 0, length: textStorage.length),
+                            actualCharacterRange: nil)
                         layoutManager.ensureLayout(for: textContainer)
                     }
                 }
-                
+
                 // Scroll to top when loading new entry
                 textView.scrollToBeginningOfDocument(nil)
             }
@@ -124,6 +129,31 @@ import SwiftUI
             func textViewDidChangeSelection(_ notification: Notification) {
                 guard let textView = notification.object as? NSTextView else { return }
                 parent.selectedRange = textView.selectedRange()
+
+                // Typewriter Mode: Center the cursor
+                if parent.isTypewriterMode,
+                    let layoutManager = textView.layoutManager,
+                    let textContainer = textView.textContainer,
+                    let scrollView = textView.enclosingScrollView
+                {
+                    let selectedRange = textView.selectedRange()
+                    let glyphRange = layoutManager.glyphRange(
+                        forCharacterRange: selectedRange, actualCharacterRange: nil)
+                    let cursorRect = layoutManager.boundingRect(
+                        forGlyphRange: glyphRange, in: textContainer)
+
+                    let clipView = scrollView.contentView
+                    let clipViewHeight = clipView.bounds.height
+                    let centeredY =
+                        cursorRect.origin.y - (clipViewHeight / 2) + (cursorRect.height / 2)
+
+                    // Animate scrolling for smoothness
+                    NSAnimationContext.beginGrouping()
+                    NSAnimationContext.current.duration = 0.1
+                    clipView.animator().setBoundsOrigin(
+                        NSPoint(x: clipView.bounds.origin.x, y: max(0, centeredY)))
+                    NSAnimationContext.endGrouping()
+                }
             }
         }
     }

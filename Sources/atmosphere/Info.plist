@@ -8,5 +8,11 @@
     <string>Atmosphere uses the microphone to record audio notes.</string>
     <key>CFBundleIdentifier</key>
     <string>com.atmosphere.app</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>CFBundleName</key>
+    <string>Atmosphere</string>
+    <key>CFBundleDisplayName</key>
+    <string>Atmosphere</string>
 </dict>
 </plist>
