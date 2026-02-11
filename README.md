@@ -22,7 +22,7 @@ To build and run Atmosphere, you will need Xcode 13 or later and macOS 12 or lat
 
 1.  Clone the repository:
     ```bash
-    git clone https://github.com/your-username/atmosphere.git
+    git clone https://github.com/aviatorcards/atmosphere.git
     ```
 2.  Open the project in Xcode:
     ```bash
