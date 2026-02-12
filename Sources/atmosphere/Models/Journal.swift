@@ -31,6 +31,7 @@ struct Journal: Identifiable, Hashable, Codable {
     static let trashID = UUID(uuidString: "00000000-0000-0000-0000-000000000006")!
 
     // Special collections (not persisted)
+    // !!EXPLAIN THIS!!
     static let all = Journal(
         id: allEntriesID, name: "All Entries", icon: "tray.full", isDefault: true, sortOrder: -3)
     static let map = Journal(id: mapID, name: "Places", icon: "map", isDefault: true, sortOrder: -2)

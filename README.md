@@ -1,8 +1,6 @@
 # Atmosphere
 
-<p align="center">
-  <img src="logo.png" alt="Atmosphere Logo" width="200"/>
-</p>
+Project is archived as of 02-12-2026. Somehow I had honestly never looked at [Obsidian](https://obsidian.md/) before and it seems to do everything I wanted this app to do and more. So I don't really see a reason to continue working on this.
 
 Atmosphere is a simple and elegant journaling application for macOS. It provides a clean and distraction-free writing experience, allowing you to capture your thoughts, ideas, and memories with ease.
 
